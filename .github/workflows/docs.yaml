@@ -30,10 +30,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18.x
-      - name: Setup .NET Core SDK 10.x
+      - name: Setup .NET SDK 11 preview
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.x
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Show .NET SDK info
+        run: dotnet --info
 
       - name: Install docfx
         run: dotnet tool update -g docfx

@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net11.0;net10.0;net8.0;net481;net472</TargetFrameworks>
-    <Product>Fluent.Streams</Product>
-    <Title>Fluent.Streams</Title>
+    <Product>Fluent.Streams.DependencyInjection</Product>
+    <Title>Fluent.Streams.DependencyInjection</Title>
     <Description>Markerless CQRS and event sourcing primitives for .NET: append-only streams, source-generated command registration, ValueTask handlers, and result-friendly command dispatching.</Description>
     <PackageDescription>Markerless CQRS and event sourcing primitives for .NET: append-only streams, source-generated command registration, ValueTask handlers, and result-friendly command dispatching.</PackageDescription>
     <PackageTags>$(CommonTags);eventstore;event-sourced;command-dispatcher;markerless-handlers;valuetask;source-generated</PackageTags>
@@ -35,36 +35,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Build the generator alongside SharedKernel; no runtime reference to its types -->
-    <ProjectReference
-      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.SourceGenerators.csproj"
-      PrivateAssets="all"
-      ReferenceOutputAssembly="false"
-    />
-  </ItemGroup>
-
-  <ItemGroup Label="Package">
-    <!-- Pack the .targets file so NuGet consumers automatically get the analyzer registered -->
-    <None
-      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.targets"
-      PackagePath="buildTransitive\"
-      Pack="true"
-    />
-    <None
-      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.targets"
-      PackagePath="build\"
-      Pack="true"
-    />
-    <!-- Pack the source generator binary -->
-    <None
-      Include="..\Fluent.Streams.SourceGenerators\bin\$(Configuration)\netstandard2.0\Fluent.Streams.SourceGenerators.dll"
-      PackagePath="analyzers\dotnet\cs"
-      Pack="true"
-      Visible="false"
-    />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="System.Diagnostics.CodeAnalysis" />
+    <ProjectReference Include="..\Fluent.Streams\Fluent.Streams.csproj" />
   </ItemGroup>
 </Project>

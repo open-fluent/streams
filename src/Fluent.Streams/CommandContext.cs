@@ -26,7 +26,11 @@ public sealed class CommandContext<TCommand> : ICommandContext<TCommand>
     /// <param name="command">The command instance executed within this context.</param>
     [SetsRequiredMembers]
     public CommandContext(TCommand command)
+#if NET6_0_OR_GREATER
         : this(command, Guid.NewGuid(), TimeProvider.System.GetUtcNow()) { }
+#else
+        : this(command, Guid.NewGuid(), DateTimeOffset.UtcNow) { }
+#endif
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandContext{TCommand}"/> class.

@@ -7,8 +7,10 @@
     <File Path="README.md" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="tests/Fluent.Streams.DependencyInjection.UnitTests/Fluent.Streams.DependencyInjection.UnitTests.csproj" />
     <Project Path="tests/Fluent.Streams.UnitTests/Fluent.Streams.UnitTests.csproj" />
   </Folder>
   <Project Path="src/Fluent.Streams/Fluent.Streams.csproj" />
+  <Project Path="src/Fluent.Streams.DependencyInjection/Fluent.Streams.DependencyInjection.csproj" />
   <Project Path="src/Fluent.Streams.SourceGenerators/Fluent.Streams.SourceGenerators.csproj" />
 </Solution>

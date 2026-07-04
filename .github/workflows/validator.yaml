@@ -19,10 +19,14 @@ jobs:
         with:
           nuget-api-key: ${{ secrets.NUGET_API_KEY }}
 
-      - name: Setup .NET Core SDK 10.x
+      - name: Setup .NET SDK 11 preview
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.x
+          dotnet-version: 11.0.x
+          dotnet-quality: preview
+
+      - name: Show .NET SDK info
+        run: dotnet --info
 
       - name: Install dependencies
         run: dotnet restore
