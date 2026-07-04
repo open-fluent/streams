@@ -26,4 +26,12 @@
       <Link>.dockerignore</Link>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <Using Include="Fluent.Streams" />
+    <Using Include="Microsoft.AspNetCore.Http.HttpResults" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
+    <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />
+    <Using Include="System.ComponentModel" />
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+  </ItemGroup>
 </Project>
