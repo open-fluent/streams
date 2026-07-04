@@ -8,6 +8,8 @@
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="tests/Fluent.Streams.DependencyInjection.UnitTests/Fluent.Streams.DependencyInjection.UnitTests.csproj" />
+    <Project Path="tests/Fluent.Streams.Sample.AspNetCore/Fluent.Streams.Sample.AspNetCore.csproj" />
+    <Project Path="tests/Fluent.Streams.Sample/Fluent.Streams.Sample.csproj" />
     <Project Path="tests/Fluent.Streams.UnitTests/Fluent.Streams.UnitTests.csproj" />
   </Folder>
   <Project Path="src/Fluent.Streams/Fluent.Streams.csproj" />

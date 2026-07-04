@@ -8,7 +8,7 @@ namespace Fluent.Streams.DependencyInjection.UnitTests;
 public sealed class CommandHandlerWithResultsTests
 {
     [Fact]
-    public async Task CommandHandler_Should_Return_Union_Result_When_Handler_Is_Created_By_DI()
+    public async Task CommandHandler_ShouldReturnUnionResult_WhenHandlerIsCreatedByDi()
     {
         var command = new RegisterUser { Username = "testuser", Password = "password123" };
 
@@ -25,6 +25,7 @@ public sealed class CommandHandlerWithResultsTests
         probe.HandledCommands.Should().Be(0);
 
         var result = await dispatcher.SendAsync(command);
+
         var registered = result switch
         {
             UserRegistered value => value,
@@ -38,19 +39,77 @@ public sealed class CommandHandlerWithResultsTests
     }
 
     [Fact]
-    public void AddFluentStreams_Should_Throw_When_Command_Handler_Is_Registered_Twice()
+    public void AddFluentStreams_ShouldThrow_WhenCommandHandlerIsRegisteredTwice()
     {
         var services = new ServiceCollection();
         services.AddSingleton(new RegisteredUserIds(Guid.NewGuid()));
         services.AddSingleton<HandlerLifecycleProbe>();
-        EventSourcingServiceBuilder builder = services.AddFluentStreams()
+        var builder = services.AddFluentStreams()
             .WithCommand<RegisterUserHandler>();
 
-        Action action = () => builder.WithCommand<DuplicateRegisterUserHandler>();
+        var action = () => builder.WithCommand<DuplicateRegisterUserHandler>();
 
         action.Should()
             .Throw<InvalidOperationException>()
             .WithMessage("*RegisterUser*");
+    }
+
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenDIHandlerDoesNotAcceptCancellationToken()
+    {
+        var command = new CreateUserWithoutCancellation() { Username = "testuser" };
+
+        var services = new ServiceCollection();
+        services.AddSingleton(new RegisteredUserIds(new Guid("9502a599-6e0f-44c4-a0b1-3a6bce9ba99f")));
+        services.AddSingleton<HandlerLifecycleProbe>();
+        services.AddFluentStreams().WithCommand<CreateUserWithoutCancellationHandler>();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var dispatcher = serviceProvider.GetRequiredService<ICommandDispatcher>();
+        var probe = serviceProvider.GetRequiredService<HandlerLifecycleProbe>();
+
+        var result = await dispatcher.SendAsync(command);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(serviceProvider.GetRequiredService<RegisteredUserIds>().NextId);
+        probe.CreatedHandlers.Should().Be(1);
+        probe.HandledCommands.Should().Be(1);
+        probe.LastUsername.Should().Be(command.Username);
+    }
+
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenDIHandlerRequiresCancellationToken()
+    {
+        var command = new CreateUserWithRequiredCancellation { Username = "testuser" };
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var services = new ServiceCollection();
+        services.AddSingleton(new RegisteredUserIds(new Guid("4ed1b56f-5c33-4b87-9c13-0e88df0d32cc")));
+        services.AddSingleton<HandlerLifecycleProbe>();
+        services.AddFluentStreams().WithCommand<CreateUserWithRequiredCancellationHandler>();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var dispatcher = serviceProvider.GetRequiredService<ICommandDispatcher>();
+        var probe = serviceProvider.GetRequiredService<HandlerLifecycleProbe>();
+
+        var result = await dispatcher.SendAsync(command, cancellationTokenSource.Token);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(serviceProvider.GetRequiredService<RegisteredUserIds>().NextId);
+        probe.CreatedHandlers.Should().Be(1);
+        probe.HandledCommands.Should().Be(1);
+        probe.LastUsername.Should().Be(command.Username);
+        probe.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
     public sealed record RegisterUser
@@ -98,6 +157,71 @@ public sealed class CommandHandlerWithResultsTests
         }
     }
 
+    public sealed record CreateUserWithoutCancellation
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithoutCancellationHandler
+    {
+        private readonly RegisteredUserIds registeredUserIds;
+
+        private readonly HandlerLifecycleProbe probe;
+
+        public CreateUserWithoutCancellationHandler(
+            RegisteredUserIds registeredUserIds,
+            HandlerLifecycleProbe probe
+        )
+        {
+            this.registeredUserIds = registeredUserIds;
+            this.probe = probe;
+            probe.RecordHandlerCreated();
+        }
+
+        public ValueTask<UserRegistrationResult> HandleAsync(CreateUserWithoutCancellation command)
+        {
+            probe.RecordCommandHandled(command.Username);
+
+            return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = registeredUserIds.NextId }
+            );
+        }
+    }
+
+    public sealed record CreateUserWithRequiredCancellation
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithRequiredCancellationHandler
+    {
+        private readonly RegisteredUserIds registeredUserIds;
+
+        private readonly HandlerLifecycleProbe probe;
+
+        public CreateUserWithRequiredCancellationHandler(
+            RegisteredUserIds registeredUserIds,
+            HandlerLifecycleProbe probe
+        )
+        {
+            this.registeredUserIds = registeredUserIds;
+            this.probe = probe;
+            probe.RecordHandlerCreated();
+        }
+
+        public ValueTask<UserRegistrationResult> HandleAsync(
+            CreateUserWithRequiredCancellation command,
+            CancellationToken cancellationToken
+        )
+        {
+            probe.RecordCommandHandled(command.Username, cancellationToken.CanBeCanceled);
+
+            return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = registeredUserIds.NextId }
+            );
+        }
+    }
+
     public sealed record RegisteredUserIds(Guid NextId);
 
     public sealed class HandlerLifecycleProbe
@@ -108,6 +232,8 @@ public sealed class CommandHandlerWithResultsTests
 
         public string? LastUsername { get; private set; }
 
+        public bool LastTokenCanBeCanceled { get; private set; }
+
         public void RecordHandlerCreated()
         {
             CreatedHandlers++;
@@ -115,8 +241,14 @@ public sealed class CommandHandlerWithResultsTests
 
         public void RecordCommandHandled(string username)
         {
+            RecordCommandHandled(username, lastTokenCanBeCanceled: false);
+        }
+
+        public void RecordCommandHandled(string username, bool lastTokenCanBeCanceled)
+        {
             HandledCommands++;
             LastUsername = username;
+            LastTokenCanBeCanceled = lastTokenCanBeCanceled;
         }
     }
 

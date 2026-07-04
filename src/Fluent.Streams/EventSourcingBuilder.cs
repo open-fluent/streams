@@ -84,7 +84,7 @@ public sealed class EventSourcingBuilder
     private void ThrowIfCommandAlreadyRegistered<TCommand>()
         where TCommand : notnull
     {
-        Type commandType = typeof(TCommand);
+        var commandType = typeof(TCommand);
 
         if (commandRegistrations.ContainsKey(commandType))
         {

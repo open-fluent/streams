@@ -44,7 +44,7 @@ public sealed class CommandHandlerWithResultsTests
     }
 
     [Fact]
-    public void EventSourcingBuilder_Should_Throw_When_Command_Handler_Is_Registered_Twice()
+    public void EventSourcingBuilder_ShouldThrow_WhenCommandHandlerIsRegisteredTwice()
     {
         EventSourcingBuilder builder = new EventSourcingBuilder().WithCommand<RegisterUserHandler>();
 
@@ -53,6 +53,47 @@ public sealed class CommandHandlerWithResultsTests
         action.Should()
             .Throw<InvalidOperationException>()
             .WithMessage("*RegisterUser*");
+    }
+
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenHandlerDoesNotAcceptCancellationToken()
+    {
+        var command = new CreateUserWithoutCancellation { Username = "testuser" };
+        var dispatcher = new EventSourcingBuilder()
+            .WithCommand<CreateUserWithoutCancellationHandler>()
+            .Build();
+
+        var result = await dispatcher.SendAsync(command);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(CreateUserWithoutCancellationHandler.RegisteredUserId);
+    }
+
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenHandlerRequiresCancellationToken()
+    {
+        CreateUserWithRequiredCancellationHandler.LastTokenCanBeCanceled = false;
+        var command = new CreateUserWithRequiredCancellation { Username = "testuser" };
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var dispatcher = new EventSourcingBuilder()
+            .WithCommand<CreateUserWithRequiredCancellationHandler>()
+            .Build();
+
+        var result = await dispatcher.SendAsync(command, cancellationTokenSource.Token);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(CreateUserWithRequiredCancellationHandler.RegisteredUserId);
+        CreateUserWithRequiredCancellationHandler.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
     public sealed record RegisterUser
@@ -86,6 +127,47 @@ public sealed class CommandHandlerWithResultsTests
         {
             return ValueTask.FromResult<UserRegistrationResult>(
                 new RegistrationFailed { Message = $"Duplicate handler for '{command.Username}'." }
+            );
+        }
+    }
+
+    public sealed record CreateUserWithoutCancellation
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithoutCancellationHandler
+    {
+        public static readonly Guid RegisteredUserId = new("9502a599-6e0f-44c4-a0b1-3a6bce9ba99f");
+
+        public ValueTask<UserRegistrationResult> HandleAsync(CreateUserWithoutCancellation command)
+        {
+            return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = RegisteredUserId }
+            );
+        }
+    }
+
+    public sealed record CreateUserWithRequiredCancellation
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithRequiredCancellationHandler
+    {
+        public static readonly Guid RegisteredUserId = new("4ed1b56f-5c33-4b87-9c13-0e88df0d32cc");
+
+        public static bool LastTokenCanBeCanceled { get; set; }
+
+        public ValueTask<UserRegistrationResult> HandleAsync(
+            CreateUserWithRequiredCancellation command,
+            CancellationToken cancellationToken
+        )
+        {
+            LastTokenCanBeCanceled = cancellationToken.CanBeCanceled;
+
+            return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = RegisteredUserId }
             );
         }
     }

@@ -72,21 +72,14 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             return null;
         }
 
-        ITypeSymbol? receiverType = context
-            .SemanticModel.GetTypeInfo(memberAccess.Expression, cancellationToken)
-            .Type;
-
-        BuilderKind builderKind;
-        string? receiverTypeName = receiverType?.ToDisplayString(TypeFormat);
-        if (receiverTypeName is null or "global::Fluent.Streams.EventSourcingBuilder")
-        {
-            builderKind = BuilderKind.Core;
-        }
-        else if (receiverTypeName == "global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder")
-        {
-            builderKind = BuilderKind.DependencyInjection;
-        }
-        else
+        if (
+            !TryGetBuilderKind(
+                memberAccess.Expression,
+                context.SemanticModel,
+                cancellationToken,
+                out BuilderKind builderKind
+            )
+        )
         {
             return null;
         }
@@ -101,6 +94,66 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         }
 
         return TryCreateHandlerInfo(handlerType, builderKind);
+    }
+
+    private static bool TryGetBuilderKind(
+        ExpressionSyntax expression,
+        SemanticModel semanticModel,
+        CancellationToken cancellationToken,
+        out BuilderKind builderKind
+    )
+    {
+        ITypeSymbol? receiverType = semanticModel.GetTypeInfo(expression, cancellationToken).Type;
+        string? receiverTypeName = receiverType?.ToDisplayString(TypeFormat);
+        if (receiverTypeName == "global::Fluent.Streams.EventSourcingBuilder")
+        {
+            builderKind = BuilderKind.Core;
+            return true;
+        }
+
+        if (receiverTypeName == "global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder")
+        {
+            builderKind = BuilderKind.DependencyInjection;
+            return true;
+        }
+
+        if (
+            expression is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.Name is GenericNameSyntax genericName
+            && genericName.Identifier.ValueText == "WithCommand"
+            && genericName.TypeArgumentList.Arguments.Count == 1
+        )
+        {
+            return TryGetBuilderKind(
+                memberAccess.Expression,
+                semanticModel,
+                cancellationToken,
+                out builderKind
+            );
+        }
+
+        if (
+            expression is IdentifierNameSyntax identifierName
+            && semanticModel.GetSymbolInfo(identifierName, cancellationToken).Symbol
+                is ILocalSymbol localSymbol
+        )
+        {
+            foreach (SyntaxReference syntaxReference in localSymbol.DeclaringSyntaxReferences)
+            {
+                if (
+                    syntaxReference.GetSyntax(cancellationToken) is VariableDeclaratorSyntax declarator
+                    && declarator.Initializer?.Value is ExpressionSyntax initializer
+                    && TryGetBuilderKind(initializer, semanticModel, cancellationToken, out builderKind)
+                )
+                {
+                    return true;
+                }
+            }
+        }
+
+        builderKind = default;
+        return false;
     }
 
     private static CommandHandlerInfo? TryCreateHandlerInfo(
@@ -239,8 +292,14 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             .ToArray();
         if (coreRegistrations.Length > 0)
         {
+            source.AppendLine("    /// <summary>");
+            source.AppendLine(
+                "    /// Provides source-generated registration extensions for markerless command handlers."
+            );
+            source.AppendLine("    /// </summary>");
             source.AppendLine("    public static class EventSourcingBuilderGeneratedExtensions");
             source.AppendLine("    {");
+            AppendWithCommandDocumentation(source, isDependencyInjectionBuilder: false);
             source.AppendLine(
                 "        public static global::Fluent.Streams.EventSourcingBuilder WithCommand<THandler>(this global::Fluent.Streams.EventSourcingBuilder builder)"
             );
@@ -269,8 +328,14 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             source.AppendLine();
             source.AppendLine("namespace Fluent.Streams.DependencyInjection");
             source.AppendLine("{");
+            source.AppendLine("    /// <summary>");
+            source.AppendLine(
+                "    /// Provides source-generated dependency injection registration extensions for markerless command handlers."
+            );
+            source.AppendLine("    /// </summary>");
             source.AppendLine("    public static class EventSourcingServiceBuilderGeneratedExtensions");
             source.AppendLine("    {");
+            AppendWithCommandDocumentation(source, isDependencyInjectionBuilder: true);
             source.AppendLine(
                 "        public static global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder WithCommand<THandler>(this global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder builder)"
             );
@@ -289,6 +354,73 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         }
 
         return source.ToString();
+    }
+
+    private static void AppendWithCommandDocumentation(
+        StringBuilder source,
+        bool isDependencyInjectionBuilder
+    )
+    {
+        source.AppendLine("        /// <summary>");
+        source.AppendLine(
+            "        /// Registers a markerless command handler discovered by the Fluent.Streams source generator."
+        );
+        source.AppendLine("        /// </summary>");
+        source.AppendLine(
+            "        /// <typeparam name=\"THandler\">The handler type that exposes a public <c>HandleAsync</c> method for a command.</typeparam>"
+        );
+        source.AppendLine(
+            "        /// <param name=\"builder\">The event sourcing builder used to collect command handler registrations.</param>"
+        );
+        source.AppendLine(
+            "        /// <returns>The same builder instance so command registrations can be chained fluently.</returns>"
+        );
+        source.AppendLine(
+            "        /// <exception cref=\"global::System.InvalidOperationException\">A handler for the same command type has already been registered.</exception>"
+        );
+        source.AppendLine("        /// <remarks>");
+        source.AppendLine("        /// <para>");
+        source.AppendLine(
+            "        /// This method is generated from calls such as <c>builder.WithCommand&lt;RegisterUserHandler&gt;()</c>."
+        );
+        source.AppendLine(
+            "        /// The command type and optional result type are inferred from the handler's <c>HandleAsync</c> signature."
+        );
+        source.AppendLine("        /// </para>");
+        source.AppendLine("        /// <para>");
+        source.AppendLine(
+            "        /// Supported handler shapes are <c>ValueTask HandleAsync(TCommand command)</c>,"
+        );
+        source.AppendLine(
+            "        /// <c>ValueTask HandleAsync(TCommand command, CancellationToken cancellationToken)</c>,"
+        );
+        source.AppendLine("        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command)</c>, and");
+        source.AppendLine(
+            "        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command, CancellationToken cancellationToken)</c>."
+        );
+        source.AppendLine(
+            "        /// The cancellation token may be required or declared with <c>= default</c>."
+        );
+        source.AppendLine("        /// </para>");
+
+        if (isDependencyInjectionBuilder)
+        {
+            source.AppendLine("        /// <para>");
+            source.AppendLine(
+                "        /// The dependency injection variant registers <typeparamref name=\"THandler\" /> in the service collection and resolves it from the container when the command bus dispatches the command."
+            );
+            source.AppendLine("        /// </para>");
+        }
+        else
+        {
+            source.AppendLine("        /// <para>");
+            source.AppendLine(
+                "        /// The core variant creates <typeparamref name=\"THandler\" /> directly when the command bus dispatches the command."
+            );
+            source.AppendLine("        /// </para>");
+        }
+
+        source.AppendLine("        /// </remarks>");
     }
 
     private static void AppendRegistration(StringBuilder source, CommandHandlerInfo registration)
@@ -326,6 +458,11 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         IReadOnlyList<CommandHandlerInfo> registrations
     )
     {
+        source.AppendLine("    /// <summary>");
+        source.AppendLine(
+            "    /// Provides source-generated, strongly typed command bus dispatch extensions."
+        );
+        source.AppendLine("    /// </summary>");
         source.AppendLine("    public static class CommandDispatcherGeneratedExtensions");
         source.AppendLine("    {");
 
@@ -333,6 +470,8 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             CommandHandlerInfo registration in registrations.Distinct(CommandDispatchInfoComparer.Instance)
         )
         {
+            AppendSendAsyncDocumentation(source, registration);
+
             if (registration.HasResult)
             {
                 source.AppendLine(
@@ -360,6 +499,65 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         }
 
         source.AppendLine("    }");
+    }
+
+    private static void AppendSendAsyncDocumentation(StringBuilder source, CommandHandlerInfo registration)
+    {
+        string commandType = EscapeXml(registration.CommandType);
+        string? resultType = registration.ResultType is null ? null : EscapeXml(registration.ResultType);
+
+        source.AppendLine("        /// <summary>");
+        if (registration.HasResult)
+        {
+            source.AppendLine(
+                $"        /// Dispatches the <c>{commandType}</c> command through the command bus and returns the handler result."
+            );
+        }
+        else
+        {
+            source.AppendLine(
+                $"        /// Dispatches the <c>{commandType}</c> command through the command bus."
+            );
+        }
+
+        source.AppendLine("        /// </summary>");
+        source.AppendLine(
+            "        /// <param name=\"dispatcher\">The command dispatcher that routes the command to its registered handler.</param>"
+        );
+        source.AppendLine("        /// <param name=\"command\">The command instance to execute.</param>");
+        source.AppendLine(
+            "        /// <param name=\"cancellationToken\">A token that can be used to cancel command dispatch before or during handler execution.</param>"
+        );
+
+        if (registration.HasResult)
+        {
+            source.AppendLine(
+                $"        /// <returns>A value task that completes with the <c>{resultType}</c> result produced by the handler.</returns>"
+            );
+        }
+        else
+        {
+            source.AppendLine(
+                "        /// <returns>A value task that completes when the command handler finishes.</returns>"
+            );
+        }
+
+        source.AppendLine(
+            "        /// <exception cref=\"global::System.InvalidOperationException\">No handler is registered for the command type, or the registered handler has a different result shape.</exception>"
+        );
+        source.AppendLine("        /// <remarks>");
+        source.AppendLine(
+            "        /// This overload is generated from the corresponding <c>WithCommand&lt;THandler&gt;()</c> registration so callers can dispatch the concrete command without specifying generic type arguments manually."
+        );
+        source.AppendLine(
+            "        /// Exceptions thrown by the handler are not wrapped by Fluent.Streams and flow to the caller unchanged."
+        );
+        source.AppendLine("        /// </remarks>");
+    }
+
+    private static string EscapeXml(string value)
+    {
+        return value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
     }
 
     private static string SanitizeIdentifier(string value)
