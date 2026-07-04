@@ -28,6 +28,7 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="Fluent.Streams" />
+    <Using Include="Fluent.Streams.DependencyInjection" />
     <Using Include="Microsoft.AspNetCore.Http.HttpResults" />
     <Using Include="Microsoft.Extensions.DependencyInjection" />
     <Using Include="Microsoft.Extensions.DependencyInjection.Extensions" />

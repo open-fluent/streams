@@ -3,12 +3,9 @@
 // Copyright (C) Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors.
 // All Rights Reserved.
 
-using Fluent.Streams;
-using Fluent.Streams.DependencyInjection;
 using Fluent.Streams.Sample;
 using Fluent.Streams.Sample.AspNetCore;
 using Fluent.Streams.Sample.Commands;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 

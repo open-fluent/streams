@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
     <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <NoWarn>IDISP004</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,6 +25,7 @@
     <Using Include="Fluent.Client" />
     <Using Include="Fluent.Client.AwesomeAssertions" />
     <Using Include="Fluent.Streams" />
+    <Using Include="Fluent.Streams.DependencyInjection" />
     <Using Include="Microsoft.AspNetCore.Hosting" />
     <Using Include="Microsoft.AspNetCore.Http.HttpResults" />
     <Using Include="Microsoft.AspNetCore.Mvc.Testing" />
