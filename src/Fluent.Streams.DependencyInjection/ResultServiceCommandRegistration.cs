@@ -11,23 +11,24 @@ namespace Fluent.Streams.DependencyInjection;
 /// <typeparam name="TCommand">The command type accepted by the handler.</typeparam>
 /// <typeparam name="TResult">The result type produced by the handler.</typeparam>
 /// <typeparam name="THandler">The handler type resolved from the service provider.</typeparam>
-internal sealed class ResultServiceCommandRegistration<TCommand, TResult, THandler>(
+public class ResultServiceCommandRegistration<TCommand, TResult, THandler>(
     Func<THandler, TCommand, CancellationToken, ValueTask<TResult>> handler
 ) : IServiceCommandRegistration<TCommand, TResult>
     where TCommand : notnull
     where THandler : class
 {
     /// <inheritdoc />
-    public Type CommandType => typeof(TCommand);
+    public virtual Type CommandType => typeof(TCommand);
 
     /// <inheritdoc />
-    public ValueTask<TResult> HandleAsync(
+    public virtual ValueTask<TResult> HandleAsync(
         IServiceProvider serviceProvider,
         TCommand command,
         CancellationToken cancellationToken
     )
     {
-        THandler resolvedHandler = serviceProvider.GetRequiredService<THandler>();
+        var resolvedHandler = serviceProvider.GetRequiredService<THandler>();
+
         return handler(resolvedHandler, command, cancellationToken);
     }
 }

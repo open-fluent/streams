@@ -33,6 +33,9 @@ public sealed class EventSourcingBuilder
     /// <typeparam name="THandler">The command handler type.</typeparam>
     /// <param name="handler">The generated handler delegate.</param>
     /// <returns>The current builder.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when another handler has already been registered for <typeparamref name="TCommand" />.
+    /// </exception>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public EventSourcingBuilder RegisterCommand<TCommand, THandler>(
         Func<THandler, TCommand, CancellationToken, ValueTask> handler
@@ -40,9 +43,13 @@ public sealed class EventSourcingBuilder
         where TCommand : notnull
         where THandler : class, new()
     {
-        commandRegistrations[typeof(TCommand)] = new NonResultCommandRegistration<TCommand, THandler>(
-            handler
+        ThrowIfCommandAlreadyRegistered<TCommand>();
+
+        commandRegistrations.Add(
+            typeof(TCommand),
+            new NonResultCommandRegistration<TCommand, THandler>(handler)
         );
+
         return this;
     }
 
@@ -54,6 +61,9 @@ public sealed class EventSourcingBuilder
     /// <typeparam name="THandler">The command handler type.</typeparam>
     /// <param name="handler">The generated handler delegate.</param>
     /// <returns>The current builder.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when another handler has already been registered for <typeparamref name="TCommand" />.
+    /// </exception>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public EventSourcingBuilder RegisterCommand<TCommand, TResult, THandler>(
         Func<THandler, TCommand, CancellationToken, ValueTask<TResult>> handler
@@ -61,9 +71,26 @@ public sealed class EventSourcingBuilder
         where TCommand : notnull
         where THandler : class, new()
     {
-        commandRegistrations[typeof(TCommand)] = new ResultCommandRegistration<TCommand, TResult, THandler>(
-            handler
+        ThrowIfCommandAlreadyRegistered<TCommand>();
+
+        commandRegistrations.Add(
+            typeof(TCommand),
+            new ResultCommandRegistration<TCommand, TResult, THandler>(handler)
         );
+
         return this;
+    }
+
+    private void ThrowIfCommandAlreadyRegistered<TCommand>()
+        where TCommand : notnull
+    {
+        Type commandType = typeof(TCommand);
+
+        if (commandRegistrations.ContainsKey(commandType))
+        {
+            throw new InvalidOperationException(
+                $"A command handler is already registered for '{commandType.FullName}'."
+            );
+        }
     }
 }

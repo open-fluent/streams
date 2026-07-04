@@ -13,35 +13,36 @@ namespace Fluent.Streams.DependencyInjection;
 /// and uses the generated <see cref="IServiceCommandRegistration" /> entries to find the handler for a command type.
 /// Handler instances are resolved for every dispatch, so scoped dependencies are honored by the active service scope.
 /// </remarks>
-internal sealed class ServiceProviderCommandDispatcher(
+public class ServiceProviderCommandDispatcher(
     IServiceProvider serviceProvider,
     IEnumerable<IServiceCommandRegistration> commandRegistrations
 ) : ICommandDispatcher
 {
-    private readonly IReadOnlyDictionary<Type, IServiceCommandRegistration> _commandRegistrations =
+    private readonly IReadOnlyDictionary<Type, IServiceCommandRegistration> commandRegistrations =
         commandRegistrations.ToDictionary(static registration => registration.CommandType);
 
     /// <inheritdoc />
-    public ValueTask DispatchAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
-        where TCommand : notnull
-    {
-        IServiceCommandRegistration<TCommand> registration = GetRequiredRegistration<
-            IServiceCommandRegistration<TCommand>
-        >(typeof(TCommand));
-
-        return registration.HandleAsync(serviceProvider, command, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public ValueTask<TResult> DispatchAsync<TCommand, TResult>(
+    public virtual ValueTask DispatchAsync<TCommand>(
         TCommand command,
         CancellationToken cancellationToken = default
     )
         where TCommand : notnull
     {
-        IServiceCommandRegistration<TCommand, TResult> registration = GetRequiredRegistration<
-            IServiceCommandRegistration<TCommand, TResult>
-        >(typeof(TCommand));
+        var registration = GetRequiredRegistration<IServiceCommandRegistration<TCommand>>(typeof(TCommand));
+
+        return registration.HandleAsync(serviceProvider, command, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public virtual ValueTask<TResult> DispatchAsync<TCommand, TResult>(
+        TCommand command,
+        CancellationToken cancellationToken = default
+    )
+        where TCommand : notnull
+    {
+        var registration = GetRequiredRegistration<IServiceCommandRegistration<TCommand, TResult>>(
+            typeof(TCommand)
+        );
 
         return registration.HandleAsync(serviceProvider, command, cancellationToken);
     }
@@ -55,10 +56,10 @@ internal sealed class ServiceProviderCommandDispatcher(
     /// <exception cref="InvalidOperationException">
     /// Thrown when the command is not registered or was registered with a different result shape.
     /// </exception>
-    private TRegistration GetRequiredRegistration<TRegistration>(Type commandType)
+    protected virtual TRegistration GetRequiredRegistration<TRegistration>(Type commandType)
         where TRegistration : class, IServiceCommandRegistration
     {
-        return _commandRegistrations.TryGetValue(commandType, out IServiceCommandRegistration? registration)
+        return commandRegistrations.TryGetValue(commandType, out var registration)
             ? registration as TRegistration
                 ?? throw new InvalidOperationException(
                     $"Command '{commandType.FullName}' is registered with a different result shape."

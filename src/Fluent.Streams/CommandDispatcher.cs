@@ -19,9 +19,7 @@ public class CommandDispatcher(IReadOnlyDictionary<Type, ICommandRegistration> c
     )
         where TCommand : notnull
     {
-        ICommandRegistration<TCommand> registration = GetRequiredRegistration<ICommandRegistration<TCommand>>(
-            typeof(TCommand)
-        );
+        var registration = GetRequiredRegistration<ICommandRegistration<TCommand>>(typeof(TCommand));
         return registration.HandleAsync(command, cancellationToken);
     }
 

@@ -22,7 +22,7 @@ namespace Fluent.Streams.DependencyInjection;
 /// ]]></code>
 /// </example>
 /// <param name="services">The service collection receiving generated command registrations.</param>
-public sealed class EventSourcingServiceBuilder(IServiceCollection services)
+public class EventSourcingServiceBuilder(IServiceCollection services)
 {
     /// <summary>
     /// Registers a generated command handler delegate that does not return a result.
@@ -31,8 +31,12 @@ public sealed class EventSourcingServiceBuilder(IServiceCollection services)
     /// <typeparam name="THandler">The handler type resolved from the service provider.</typeparam>
     /// <param name="handler">The generated handler delegate.</param>
     /// <returns>The current builder.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="handler" /> is <see langword="null" />.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when another handler has already been registered for <typeparamref name="TCommand" />.
+    /// </exception>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public EventSourcingServiceBuilder RegisterCommand<TCommand, THandler>(
+    public virtual EventSourcingServiceBuilder RegisterCommand<TCommand, THandler>(
         Func<THandler, TCommand, CancellationToken, ValueTask> handler
     )
         where TCommand : notnull
@@ -42,6 +46,8 @@ public sealed class EventSourcingServiceBuilder(IServiceCollection services)
         {
             throw new ArgumentNullException(nameof(handler));
         }
+
+        ThrowIfCommandAlreadyRegistered<TCommand>();
 
         services.TryAddTransient<THandler>();
         services.AddSingleton<IServiceCommandRegistration>(
@@ -59,8 +65,12 @@ public sealed class EventSourcingServiceBuilder(IServiceCollection services)
     /// <typeparam name="THandler">The handler type resolved from the service provider.</typeparam>
     /// <param name="handler">The generated handler delegate.</param>
     /// <returns>The current builder.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="handler" /> is <see langword="null" />.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when another handler has already been registered for <typeparamref name="TCommand" />.
+    /// </exception>
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public EventSourcingServiceBuilder RegisterCommand<TCommand, TResult, THandler>(
+    public virtual EventSourcingServiceBuilder RegisterCommand<TCommand, TResult, THandler>(
         Func<THandler, TCommand, CancellationToken, ValueTask<TResult>> handler
     )
         where TCommand : notnull
@@ -71,11 +81,32 @@ public sealed class EventSourcingServiceBuilder(IServiceCollection services)
             throw new ArgumentNullException(nameof(handler));
         }
 
+        ThrowIfCommandAlreadyRegistered<TCommand>();
+
         services.TryAddTransient<THandler>();
         services.AddSingleton<IServiceCommandRegistration>(
             new ResultServiceCommandRegistration<TCommand, TResult, THandler>(handler)
         );
 
         return this;
+    }
+
+    protected void ThrowIfCommandAlreadyRegistered<TCommand>()
+        where TCommand : notnull
+    {
+        var commandType = typeof(TCommand);
+
+        var isAlreadyRegistered = services.Any(service =>
+            service.ServiceType == typeof(IServiceCommandRegistration)
+            && service.ImplementationInstance is IServiceCommandRegistration registration
+            && registration.CommandType == commandType
+        );
+
+        if (isAlreadyRegistered)
+        {
+            throw new InvalidOperationException(
+                $"A command handler is already registered for '{commandType.FullName}'."
+            );
+        }
     }
 }

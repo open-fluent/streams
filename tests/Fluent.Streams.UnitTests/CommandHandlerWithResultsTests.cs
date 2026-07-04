@@ -43,6 +43,18 @@ public sealed class CommandHandlerWithResultsTests
         result.Id.Should().Be(RegisterUserHandler.RegisteredUserId);
     }
 
+    [Fact]
+    public void EventSourcingBuilder_Should_Throw_When_Command_Handler_Is_Registered_Twice()
+    {
+        EventSourcingBuilder builder = new EventSourcingBuilder().WithCommand<RegisterUserHandler>();
+
+        Action action = () => builder.WithCommand<DuplicateRegisterUserHandler>();
+
+        action.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*RegisterUser*");
+    }
+
     public sealed record RegisterUser
     {
         public required string Username { get; init; }
@@ -65,11 +77,24 @@ public sealed class CommandHandlerWithResultsTests
         }
     }
 
+    public sealed class DuplicateRegisterUserHandler
+    {
+        public ValueTask<UserRegistrationResult> HandleAsync(
+            RegisterUser command,
+            CancellationToken cancellationToken = default
+        )
+        {
+            return ValueTask.FromResult<UserRegistrationResult>(
+                new RegistrationFailed { Message = $"Duplicate handler for '{command.Username}'." }
+            );
+        }
+    }
+
     public record UserRegistered
     {
         public required Guid Id { get; init; }
     }
-    
+
     public record UserAlreadyRegistered
     {
         public required Guid Id { get; init; }

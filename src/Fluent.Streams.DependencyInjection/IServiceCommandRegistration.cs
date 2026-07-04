@@ -8,7 +8,7 @@ namespace Fluent.Streams.DependencyInjection;
 /// <summary>
 /// Describes a generated command registration stored in the service collection.
 /// </summary>
-internal interface IServiceCommandRegistration
+public interface IServiceCommandRegistration
 {
     /// <summary>
     /// Gets the command type handled by this registration.
@@ -20,7 +20,7 @@ internal interface IServiceCommandRegistration
 /// Represents a generated DI-backed registration for a command handler that does not return a result.
 /// </summary>
 /// <typeparam name="TCommand">The command type accepted by the handler.</typeparam>
-internal interface IServiceCommandRegistration<TCommand> : IServiceCommandRegistration
+public interface IServiceCommandRegistration<in TCommand> : IServiceCommandRegistration
     where TCommand : notnull
 {
     /// <summary>
@@ -42,7 +42,7 @@ internal interface IServiceCommandRegistration<TCommand> : IServiceCommandRegist
 /// </summary>
 /// <typeparam name="TCommand">The command type accepted by the handler.</typeparam>
 /// <typeparam name="TResult">The result type produced by the handler.</typeparam>
-internal interface IServiceCommandRegistration<TCommand, TResult> : IServiceCommandRegistration
+public interface IServiceCommandRegistration<in TCommand, TResult> : IServiceCommandRegistration
     where TCommand : notnull
 {
     /// <summary>
