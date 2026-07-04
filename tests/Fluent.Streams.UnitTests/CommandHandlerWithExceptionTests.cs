@@ -10,10 +10,10 @@ public sealed class CommandHandlerWithExceptionTests
     [Fact]
     public async Task CommandHandler_Should_Throw_Exception()
     {
-        RegisterUser command = new() { Username = "testuser", Password = "password123" };
-        ICommandDispatcher dispatcher = new EventSourcingBuilder().WithCommand<RegisterUserHandler>().Build();
+        var command = new RegisterUser { Username = "testuser", Password = "password123" };
+        var dispatcher = new EventSourcingBuilder().WithCommand<RegisterUserHandler>().Build();
 
-        Func<Task> action = async () => await dispatcher.SendAsync(command);
+        var action = async () => await dispatcher.SendAsync(command);
 
         await action.Should().ThrowAsync<InvalidOperationException>();
     }

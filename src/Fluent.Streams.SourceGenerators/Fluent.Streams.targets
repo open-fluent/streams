@@ -1,8 +1,8 @@
 <Project>
   <!-- Gather the analyzer from the Fluent.Streams NuGet package -->
-  <Target Name="_FluentAnalyzersGatherAnalyzers">
+  <Target Name="_FluentStreamsGatherAnalyzers">
     <ItemGroup>
-      <_FluentAnalyzersAnalyzer
+      <_FluentStreamsAnalyzer
         Include="@(Analyzer)"
         Condition="'%(Analyzer.NuGetPackageId)' == 'Fluent.Streams'"
       />
@@ -11,25 +11,25 @@
 
   <!-- Remove the analyzer when Roslyn < 4.3 (incremental generators require Roslyn 4.3) -->
   <Target
-    Name="_FluentAnalyzersRemoveAnalyzersForRoslyn3"
+    Name="_FluentStreamsRemoveAnalyzersForRoslyn3"
     Condition="'$(CSharpCoreTargetsPath)' != ''"
     AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets"
-    DependsOnTargets="_FluentAnalyzersGatherAnalyzers"
+    DependsOnTargets="_FluentStreamsGatherAnalyzers"
   >
     <GetAssemblyIdentity AssemblyFiles="$([System.IO.Path]::Combine(`$([System.IO.Path]::GetDirectoryName($(CSharpCoreTargetsPath)))`,`Microsoft.Build.Tasks.CodeAnalysis.dll`))">
-      <Output TaskParameter="Assemblies" ItemName="_FluentAnalyzersCompilerAssemblyIdentity" />
+      <Output TaskParameter="Assemblies" ItemName="_FluentStreamsCompilerAssemblyIdentity" />
     </GetAssemblyIdentity>
     <PropertyGroup>
-      <_FluentAnalyzersCompilerVersion>@(_FluentAnalyzersCompilerAssemblyIdentity->'%(Version)')</_FluentAnalyzersCompilerVersion>
-      <_FluentAnalyzersCompilerTooOld
-        Condition="$([MSBuild]::VersionLessThan($(_FluentAnalyzersCompilerVersion), 4.3))"
-        >true</_FluentAnalyzersCompilerTooOld>
+      <_FluentStreamsCompilerVersion>@(_FluentStreamsCompilerAssemblyIdentity->'%(Version)')</_FluentStreamsCompilerVersion>
+      <_FluentStreamsCompilerTooOld
+        Condition="$([MSBuild]::VersionLessThan($(_FluentStreamsCompilerVersion), 4.3))"
+        >true</_FluentStreamsCompilerTooOld>
     </PropertyGroup>
-    <ItemGroup Condition="'$(_FluentAnalyzersCompilerTooOld)' == 'true'">
-      <Analyzer Remove="@(_FluentAnalyzersAnalyzer)" />
+    <ItemGroup Condition="'$(_FluentStreamsCompilerTooOld)' == 'true'">
+      <Analyzer Remove="@(_FluentStreamsAnalyzer)" />
     </ItemGroup>
     <Error
-      Condition="'$(_FluentAnalyzersCompilerTooOld)' == 'true'"
+      Condition="'$(_FluentStreamsCompilerTooOld)' == 'true'"
       Code="FA001"
       Text="The Fluent.Streams source generators require Roslyn 4.3 or later. Please upgrade to VS 2022 17.3+ or .NET 6.0.400 SDK or later."
     />
@@ -37,13 +37,13 @@
 
   <!-- Remove the analyzer when Roslyn is not found -->
   <Target
-    Name="_FluentAnalyzersRemoveAnalyzersForRoslynNotFound"
+    Name="_FluentStreamsRemoveAnalyzersForRoslynNotFound"
     Condition="'$(CSharpCoreTargetsPath)' == ''"
     AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets"
-    DependsOnTargets="_FluentAnalyzersGatherAnalyzers"
+    DependsOnTargets="_FluentStreamsGatherAnalyzers"
   >
     <ItemGroup>
-      <Analyzer Remove="@(_FluentAnalyzersAnalyzer)" />
+      <Analyzer Remove="@(_FluentStreamsAnalyzer)" />
     </ItemGroup>
   </Target>
 </Project>

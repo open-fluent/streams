@@ -8,7 +8,7 @@ namespace Fluent.Streams.UnitTests;
 public sealed class CommandHandlerWithResultsTests
 {
     [Fact]
-    public async Task CommandHandler_Should_Return_Union_Result()
+    public async Task CommandHandler_ShouldReturnUnionResult()
     {
         RegisterUser command = new() { Username = "testuser", Password = "password123" };
         ICommandDispatcher dispatcher = new EventSourcingBuilder()
@@ -24,6 +24,23 @@ public sealed class CommandHandlerWithResultsTests
         };
 
         registered.Id.Should().Be(RegisterUserHandler.RegisteredUserId);
+    }
+
+    [Fact]
+    public async Task CommandHandler_ShouldReturnAwaitedUnionResult()
+    {
+        RegisterUser command = new() { Username = "testuser", Password = "password123" };
+        ICommandDispatcher dispatcher = new EventSourcingBuilder()
+            .WithCommand<RegisterUserHandler>()
+            .Build();
+
+        var result = await dispatcher.SendAsync(command) switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        result.Id.Should().Be(RegisterUserHandler.RegisteredUserId);
     }
 
     public sealed record RegisterUser
@@ -49,6 +66,11 @@ public sealed class CommandHandlerWithResultsTests
     }
 
     public record UserRegistered
+    {
+        public required Guid Id { get; init; }
+    }
+    
+    public record UserAlreadyRegistered
     {
         public required Guid Id { get; init; }
     }

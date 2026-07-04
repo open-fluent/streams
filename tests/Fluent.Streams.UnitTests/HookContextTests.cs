@@ -10,7 +10,7 @@ public sealed class HookContextTests
     [Fact]
     public void CanCreate()
     {
-        var context = new HookContext<SomeEvent>()
+        var context = new HookContext<SomeEvent>
         {
             Event = new SomeEvent(),
             CreatedAt = DateTimeOffset.UtcNow,

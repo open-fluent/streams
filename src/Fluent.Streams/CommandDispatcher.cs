@@ -9,11 +9,14 @@ namespace Fluent.Streams;
 /// Default command dispatcher backed by source-generated command registrations.
 /// </summary>
 /// <param name="commandRegistrations">The generated command registrations.</param>
-internal sealed class CommandDispatcher(IReadOnlyDictionary<Type, ICommandRegistration> commandRegistrations)
+public class CommandDispatcher(IReadOnlyDictionary<Type, ICommandRegistration> commandRegistrations)
     : ICommandDispatcher
 {
     /// <inheritdoc />
-    public ValueTask DispatchAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
+    public virtual ValueTask DispatchAsync<TCommand>(
+        TCommand command,
+        CancellationToken cancellationToken = default
+    )
         where TCommand : notnull
     {
         ICommandRegistration<TCommand> registration = GetRequiredRegistration<ICommandRegistration<TCommand>>(
@@ -23,19 +26,18 @@ internal sealed class CommandDispatcher(IReadOnlyDictionary<Type, ICommandRegist
     }
 
     /// <inheritdoc />
-    public ValueTask<TResult> DispatchAsync<TCommand, TResult>(
+    public virtual ValueTask<TResult> DispatchAsync<TCommand, TResult>(
         TCommand command,
         CancellationToken cancellationToken = default
     )
         where TCommand : notnull
     {
-        ICommandRegistration<TCommand, TResult> registration = GetRequiredRegistration<
-            ICommandRegistration<TCommand, TResult>
-        >(typeof(TCommand));
+        var registration = GetRequiredRegistration<ICommandRegistration<TCommand, TResult>>(typeof(TCommand));
+
         return registration.HandleAsync(command, cancellationToken);
     }
 
-    private TRegistration GetRequiredRegistration<TRegistration>(Type commandType)
+    protected TRegistration GetRequiredRegistration<TRegistration>(Type commandType)
         where TRegistration : class, ICommandRegistration
     {
         return commandRegistrations.TryGetValue(commandType, out ICommandRegistration? registration)

@@ -3,8 +3,6 @@
 // Copyright (C) Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors.
 // All Rights Reserved.
 
-using System.ComponentModel;
-
 namespace Fluent.Streams;
 
 /// <summary>
@@ -17,7 +15,7 @@ namespace Fluent.Streams;
 /// </remarks>
 public sealed class EventSourcingBuilder
 {
-    private readonly Dictionary<Type, ICommandRegistration> _commandRegistrations = [];
+    private readonly Dictionary<Type, ICommandRegistration> commandRegistrations = [];
 
     /// <summary>
     /// Builds a command dispatcher from the registered handlers.
@@ -25,7 +23,7 @@ public sealed class EventSourcingBuilder
     /// <returns>A dispatcher using the command handlers registered on this builder.</returns>
     public ICommandDispatcher Build()
     {
-        return new CommandDispatcher(_commandRegistrations);
+        return new CommandDispatcher(commandRegistrations);
     }
 
     /// <summary>
@@ -42,7 +40,7 @@ public sealed class EventSourcingBuilder
         where TCommand : notnull
         where THandler : class, new()
     {
-        _commandRegistrations[typeof(TCommand)] = new NonResultCommandRegistration<TCommand, THandler>(
+        commandRegistrations[typeof(TCommand)] = new NonResultCommandRegistration<TCommand, THandler>(
             handler
         );
         return this;
@@ -63,7 +61,7 @@ public sealed class EventSourcingBuilder
         where TCommand : notnull
         where THandler : class, new()
     {
-        _commandRegistrations[typeof(TCommand)] = new ResultCommandRegistration<TCommand, TResult, THandler>(
+        commandRegistrations[typeof(TCommand)] = new ResultCommandRegistration<TCommand, TResult, THandler>(
             handler
         );
         return this;

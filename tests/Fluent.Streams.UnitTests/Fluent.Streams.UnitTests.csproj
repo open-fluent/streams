@@ -10,10 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\src\Fluent.Streams\Fluent.Streams.csproj" />
     <ProjectReference
       Include="..\..\src\Fluent.Streams.SourceGenerators\Fluent.Streams.SourceGenerators.csproj"
@@ -35,6 +31,7 @@
   <ItemGroup>
     <Using Include="AwesomeAssertions" />
     <Using Include="Fluent.Streams" />
+    <Using Include="System.ComponentModel" />
     <Using Include="System.Diagnostics.CodeAnalysis" />
     <Using Include="Xunit" />
   </ItemGroup>

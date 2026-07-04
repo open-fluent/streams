@@ -65,6 +65,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="System.ComponentModel" />
     <Using Include="System.Diagnostics.CodeAnalysis" />
   </ItemGroup>
 </Project>

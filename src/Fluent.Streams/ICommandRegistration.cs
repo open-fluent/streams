@@ -5,15 +5,15 @@
 
 namespace Fluent.Streams;
 
-internal interface ICommandRegistration;
+public interface ICommandRegistration;
 
-internal interface ICommandRegistration<TCommand> : ICommandRegistration
+public interface ICommandRegistration<TCommand> : ICommandRegistration
     where TCommand : notnull
 {
     ValueTask HandleAsync(TCommand command, CancellationToken cancellationToken);
 }
 
-internal interface ICommandRegistration<TCommand, TResult> : ICommandRegistration
+public interface ICommandRegistration<TCommand, TResult> : ICommandRegistration
     where TCommand : notnull
 {
     ValueTask<TResult> HandleAsync(TCommand command, CancellationToken cancellationToken);

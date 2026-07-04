@@ -75,10 +75,18 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         ITypeSymbol? receiverType = context
             .SemanticModel.GetTypeInfo(memberAccess.Expression, cancellationToken)
             .Type;
-        if (
-            receiverType is not null
-            && receiverType.ToDisplayString(TypeFormat) != "global::Fluent.Streams.EventSourcingBuilder"
-        )
+
+        BuilderKind builderKind;
+        string? receiverTypeName = receiverType?.ToDisplayString(TypeFormat);
+        if (receiverTypeName is null or "global::Fluent.Streams.EventSourcingBuilder")
+        {
+            builderKind = BuilderKind.Core;
+        }
+        else if (receiverTypeName == "global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder")
+        {
+            builderKind = BuilderKind.DependencyInjection;
+        }
+        else
         {
             return null;
         }
@@ -92,10 +100,13 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             return null;
         }
 
-        return TryCreateHandlerInfo(handlerType);
+        return TryCreateHandlerInfo(handlerType, builderKind);
     }
 
-    private static CommandHandlerInfo? TryCreateHandlerInfo(INamedTypeSymbol handlerType)
+    private static CommandHandlerInfo? TryCreateHandlerInfo(
+        INamedTypeSymbol handlerType,
+        BuilderKind builderKind
+    )
     {
         foreach (ISymbol member in handlerType.GetMembers("HandleAsync"))
         {
@@ -141,7 +152,8 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
                 resultTypeName,
                 hasResult,
                 method.Parameters.Length == 2,
-                uniqueName
+                uniqueName,
+                builderKind
             );
         }
 
@@ -222,25 +234,60 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         source.AppendLine();
         source.AppendLine("namespace Fluent.Streams");
         source.AppendLine("{");
-        source.AppendLine("    public static class EventSourcingBuilderGeneratedExtensions");
-        source.AppendLine("    {");
-        source.AppendLine(
-            "        public static global::Fluent.Streams.EventSourcingBuilder WithCommand<THandler>(this global::Fluent.Streams.EventSourcingBuilder builder)"
-        );
-        source.AppendLine("            where THandler : class, new()");
-        source.AppendLine("        {");
-
-        foreach (CommandHandlerInfo registration in registrations)
+        CommandHandlerInfo[] coreRegistrations = registrations
+            .Where(static registration => registration.BuilderKind == BuilderKind.Core)
+            .ToArray();
+        if (coreRegistrations.Length > 0)
         {
-            AppendRegistration(source, registration);
+            source.AppendLine("    public static class EventSourcingBuilderGeneratedExtensions");
+            source.AppendLine("    {");
+            source.AppendLine(
+                "        public static global::Fluent.Streams.EventSourcingBuilder WithCommand<THandler>(this global::Fluent.Streams.EventSourcingBuilder builder)"
+            );
+            source.AppendLine("            where THandler : class, new()");
+            source.AppendLine("        {");
+
+            foreach (CommandHandlerInfo registration in coreRegistrations)
+            {
+                AppendRegistration(source, registration);
+            }
+
+            source.AppendLine("            return builder;");
+            source.AppendLine("        }");
+            source.AppendLine("    }");
+            source.AppendLine();
         }
 
-        source.AppendLine("            return builder;");
-        source.AppendLine("        }");
-        source.AppendLine("    }");
-        source.AppendLine();
         AppendDispatcherExtensions(source, registrations);
         source.AppendLine("}");
+
+        CommandHandlerInfo[] dependencyInjectionRegistrations = registrations
+            .Where(static registration => registration.BuilderKind == BuilderKind.DependencyInjection)
+            .ToArray();
+        if (dependencyInjectionRegistrations.Length > 0)
+        {
+            source.AppendLine();
+            source.AppendLine("namespace Fluent.Streams.DependencyInjection");
+            source.AppendLine("{");
+            source.AppendLine("    public static class EventSourcingServiceBuilderGeneratedExtensions");
+            source.AppendLine("    {");
+            source.AppendLine(
+                "        public static global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder WithCommand<THandler>(this global::Fluent.Streams.DependencyInjection.EventSourcingServiceBuilder builder)"
+            );
+            source.AppendLine("            where THandler : class");
+            source.AppendLine("        {");
+
+            foreach (CommandHandlerInfo registration in dependencyInjectionRegistrations)
+            {
+                AppendRegistration(source, registration);
+            }
+
+            source.AppendLine("            return builder;");
+            source.AppendLine("        }");
+            source.AppendLine("    }");
+            source.AppendLine("}");
+        }
+
         return source.ToString();
     }
 
@@ -282,7 +329,9 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         source.AppendLine("    public static class CommandDispatcherGeneratedExtensions");
         source.AppendLine("    {");
 
-        foreach (CommandHandlerInfo registration in registrations)
+        foreach (
+            CommandHandlerInfo registration in registrations.Distinct(CommandDispatchInfoComparer.Instance)
+        )
         {
             if (registration.HasResult)
             {
@@ -335,7 +384,8 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
                 && x.HandlerType == y.HandlerType
                 && x.CommandType == y.CommandType
                 && x.ResultType == y.ResultType
-                && x.HasResult == y.HasResult;
+                && x.HasResult == y.HasResult
+                && x.BuilderKind == y.BuilderKind;
         }
 
         public int GetHashCode(CommandHandlerInfo obj)
@@ -346,9 +396,41 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
                 hash = (hash * 397) ^ obj.CommandType.GetHashCode();
                 hash = (hash * 397) ^ (obj.ResultType?.GetHashCode() ?? 0);
                 hash = (hash * 397) ^ obj.HasResult.GetHashCode();
+                hash = (hash * 397) ^ obj.BuilderKind.GetHashCode();
                 return hash;
             }
         }
+    }
+
+    private sealed class CommandDispatchInfoComparer : IEqualityComparer<CommandHandlerInfo>
+    {
+        public static readonly CommandDispatchInfoComparer Instance = new();
+
+        public bool Equals(CommandHandlerInfo? x, CommandHandlerInfo? y)
+        {
+            return x is not null
+                && y is not null
+                && x.CommandType == y.CommandType
+                && x.ResultType == y.ResultType
+                && x.HasResult == y.HasResult;
+        }
+
+        public int GetHashCode(CommandHandlerInfo obj)
+        {
+            unchecked
+            {
+                int hash = obj.CommandType.GetHashCode();
+                hash = (hash * 397) ^ (obj.ResultType?.GetHashCode() ?? 0);
+                hash = (hash * 397) ^ obj.HasResult.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
+    private enum BuilderKind
+    {
+        Core,
+        DependencyInjection,
     }
 
     private sealed record CommandHandlerInfo(
@@ -357,6 +439,7 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         string? ResultType,
         bool HasResult,
         bool AcceptsCancellationToken,
-        string UniqueName
+        string UniqueName,
+        BuilderKind BuilderKind
     );
 }
