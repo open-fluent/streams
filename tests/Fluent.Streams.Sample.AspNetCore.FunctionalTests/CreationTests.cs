@@ -3,6 +3,7 @@
 // Copyright (C) Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors.
 // All Rights Reserved.
 
+using Fluent.Streams.Sample.AspNetCore.ApiModel;
 using Fluent.Streams.Sample.ValueObjects;
 
 namespace Fluent.Streams.Sample.AspNetCore.FunctionalTests;
@@ -32,8 +33,9 @@ public sealed class CreationTests : WebAppTest
                 TestContext.Current.CancellationToken
             )
             .Should()
-            .Satisfy<Order>(s =>
+            .Satisfy<CreateOrderResponse>(s =>
             {
+                s.CreatedAt.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromMinutes(5));
                 s.Items.Should().HaveCount(1);
             });
     }

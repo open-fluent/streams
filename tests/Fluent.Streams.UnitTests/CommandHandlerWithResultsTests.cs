@@ -96,6 +96,27 @@ public sealed class CommandHandlerWithResultsTests
         CreateUserWithRequiredCancellationHandler.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenHandlerReturnsTask()
+    {
+        CreateUserWithTaskHandler.LastUsername = null;
+        var command = new CreateUserWithTask { Username = "testuser" };
+        var dispatcher = new EventSourcingBuilder()
+            .WithCommand<CreateUserWithTaskHandler>()
+            .Build();
+
+        var result = await dispatcher.SendAsync(command);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(CreateUserWithTaskHandler.RegisteredUserId);
+        CreateUserWithTaskHandler.LastUsername.Should().Be(command.Username);
+    }
+
     public sealed record RegisterUser
     {
         public required string Username { get; init; }
@@ -167,6 +188,27 @@ public sealed class CommandHandlerWithResultsTests
             LastTokenCanBeCanceled = cancellationToken.CanBeCanceled;
 
             return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = RegisteredUserId }
+            );
+        }
+    }
+
+    public sealed record CreateUserWithTask
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithTaskHandler
+    {
+        public static readonly Guid RegisteredUserId = new("b0e53950-14f8-41dc-a6fd-455fbc5ad1a8");
+
+        public static string? LastUsername { get; set; }
+
+        public Task<UserRegistrationResult> HandleAsync(CreateUserWithTask command)
+        {
+            LastUsername = command.Username;
+
+            return Task.FromResult<UserRegistrationResult>(
                 new UserRegistered { Id = RegisteredUserId }
             );
         }

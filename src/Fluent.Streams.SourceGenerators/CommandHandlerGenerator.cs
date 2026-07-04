@@ -183,7 +183,14 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
                 continue;
             }
 
-            if (!TryGetValueTaskResult(method.ReturnType, out ITypeSymbol? resultType, out bool hasResult))
+            if (
+                !TryGetAsyncResult(
+                    method.ReturnType,
+                    out ITypeSymbol? resultType,
+                    out bool hasResult,
+                    out bool returnsTask
+                )
+            )
             {
                 continue;
             }
@@ -205,6 +212,7 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
                 resultTypeName,
                 hasResult,
                 method.Parameters.Length == 2,
+                returnsTask,
                 uniqueName,
                 builderKind
             );
@@ -218,27 +226,33 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         return type.ToDisplayString(TypeFormat) == "global::System.Threading.CancellationToken";
     }
 
-    private static bool TryGetValueTaskResult(
+    private static bool TryGetAsyncResult(
         ITypeSymbol type,
         out ITypeSymbol? resultType,
-        out bool hasResult
+        out bool hasResult,
+        out bool returnsTask
     )
     {
         resultType = null;
         hasResult = false;
+        returnsTask = false;
 
         if (type is not INamedTypeSymbol namedType)
         {
             return false;
         }
 
-        if (
-            namedType.Name != "ValueTask"
-            || namedType.ContainingNamespace.ToDisplayString() != "System.Threading.Tasks"
-        )
+        if (namedType.ContainingNamespace.ToDisplayString() != "System.Threading.Tasks")
         {
             return false;
         }
+
+        if (namedType.Name is not ("ValueTask" or "Task"))
+        {
+            return false;
+        }
+
+        returnsTask = namedType.Name == "Task";
 
         if (namedType.TypeArguments.Length == 0)
         {
@@ -394,9 +408,17 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         source.AppendLine(
             "        /// <c>ValueTask HandleAsync(TCommand command, CancellationToken cancellationToken)</c>,"
         );
-        source.AppendLine("        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command)</c>, and");
+        source.AppendLine("        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command)</c>,");
         source.AppendLine(
-            "        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command, CancellationToken cancellationToken)</c>."
+            "        /// <c>ValueTask&lt;TResult&gt; HandleAsync(TCommand command, CancellationToken cancellationToken)</c>,"
+        );
+        source.AppendLine("        /// <c>Task HandleAsync(TCommand command)</c>,");
+        source.AppendLine(
+            "        /// <c>Task HandleAsync(TCommand command, CancellationToken cancellationToken)</c>,"
+        );
+        source.AppendLine("        /// <c>Task&lt;TResult&gt; HandleAsync(TCommand command)</c>, and");
+        source.AppendLine(
+            "        /// <c>Task&lt;TResult&gt; HandleAsync(TCommand command, CancellationToken cancellationToken)</c>."
         );
         source.AppendLine(
             "        /// The cancellation token may be required or declared with <c>= default</c>."
@@ -441,12 +463,17 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
             );
         }
 
-        string invocation = registration.AcceptsCancellationToken
+        string handlerInvocation = registration.AcceptsCancellationToken
             ? "handler.HandleAsync(command, cancellationToken)"
             : "handler.HandleAsync(command)";
+        string adapterInvocation = registration.ReturnsTask
+            ? registration.HasResult
+                ? $"new global::System.Threading.Tasks.ValueTask<{registration.ResultType}>({handlerInvocation})"
+                : $"new global::System.Threading.Tasks.ValueTask({handlerInvocation})"
+            : handlerInvocation;
 
         source.AppendLine(
-            $"                    static (handler, command, cancellationToken) => {invocation}"
+            $"                    static (handler, command, cancellationToken) => {adapterInvocation}"
         );
         source.AppendLine("                );");
         source.AppendLine("            }");
@@ -637,6 +664,7 @@ public sealed class CommandHandlerGenerator : IIncrementalGenerator
         string? ResultType,
         bool HasResult,
         bool AcceptsCancellationToken,
+        bool ReturnsTask,
         string UniqueName,
         BuilderKind BuilderKind
     );

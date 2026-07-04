@@ -12,7 +12,7 @@ public sealed partial class Order
 {
     private Order() { }
 
-    public Guid BaskedId { get; private set; }
+    public Guid Id { get; private set; }
 
     public OrderedItem[] Items { get; private set; } = [];
 
@@ -53,7 +53,7 @@ public sealed partial class Order
         switch (@event)
         {
             case Created e:
-                BaskedId = e.Id;
+                Id = e.Id;
                 Items = e.Items;
                 CreatedAt = e.CreatedAt;
                 break;

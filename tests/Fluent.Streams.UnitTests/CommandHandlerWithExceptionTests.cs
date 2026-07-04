@@ -47,6 +47,20 @@ public sealed class CommandHandlerWithExceptionTests
         AuditRequiredCancellationUserLoginHandler.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task CommandHandler_ShouldDispatchCommand_WhenHandlerReturnsTask()
+    {
+        AuditTaskUserLoginHandler.HandledCommands = 0;
+        AuditTaskUserLoginHandler.LastUsername = null;
+        var command = new AuditTaskUserLogin { Username = "testuser" };
+        var dispatcher = new EventSourcingBuilder().WithCommand<AuditTaskUserLoginHandler>().Build();
+
+        await dispatcher.SendAsync(command);
+
+        AuditTaskUserLoginHandler.HandledCommands.Should().Be(1);
+        AuditTaskUserLoginHandler.LastUsername.Should().Be(command.Username);
+    }
+
     public sealed record RegisterUser
     {
         public required string Username { get; init; }
@@ -97,6 +111,25 @@ public sealed class CommandHandlerWithExceptionTests
             HandledCommands++;
             LastTokenCanBeCanceled = cancellationToken.CanBeCanceled;
             return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed record AuditTaskUserLogin
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class AuditTaskUserLoginHandler
+    {
+        public static int HandledCommands { get; set; }
+
+        public static string? LastUsername { get; set; }
+
+        public Task HandleAsync(AuditTaskUserLogin command)
+        {
+            HandledCommands++;
+            LastUsername = command.Username;
+            return Task.CompletedTask;
         }
     }
 }

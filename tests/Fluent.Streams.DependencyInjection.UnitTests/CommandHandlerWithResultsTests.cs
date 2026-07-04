@@ -112,6 +112,34 @@ public sealed class CommandHandlerWithResultsTests
         probe.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task CommandHandler_ShouldReturnResult_WhenDIHandlerReturnsTask()
+    {
+        var command = new CreateUserWithTask { Username = "testuser" };
+
+        var services = new ServiceCollection();
+        services.AddSingleton(new RegisteredUserIds(new Guid("b0e53950-14f8-41dc-a6fd-455fbc5ad1a8")));
+        services.AddSingleton<HandlerLifecycleProbe>();
+        services.AddFluentStreams().WithCommand<CreateUserWithTaskHandler>();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var dispatcher = serviceProvider.GetRequiredService<ICommandDispatcher>();
+        var probe = serviceProvider.GetRequiredService<HandlerLifecycleProbe>();
+
+        var result = await dispatcher.SendAsync(command);
+
+        var registered = result switch
+        {
+            UserRegistered value => value,
+            RegistrationFailed failure => throw new InvalidOperationException(failure.Message),
+        };
+
+        registered.Id.Should().Be(serviceProvider.GetRequiredService<RegisteredUserIds>().NextId);
+        probe.CreatedHandlers.Should().Be(1);
+        probe.HandledCommands.Should().Be(1);
+        probe.LastUsername.Should().Be(command.Username);
+    }
+
     public sealed record RegisterUser
     {
         public required string Username { get; init; }
@@ -217,6 +245,34 @@ public sealed class CommandHandlerWithResultsTests
             probe.RecordCommandHandled(command.Username, cancellationToken.CanBeCanceled);
 
             return ValueTask.FromResult<UserRegistrationResult>(
+                new UserRegistered { Id = registeredUserIds.NextId }
+            );
+        }
+    }
+
+    public sealed record CreateUserWithTask
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class CreateUserWithTaskHandler
+    {
+        private readonly RegisteredUserIds registeredUserIds;
+
+        private readonly HandlerLifecycleProbe probe;
+
+        public CreateUserWithTaskHandler(RegisteredUserIds registeredUserIds, HandlerLifecycleProbe probe)
+        {
+            this.registeredUserIds = registeredUserIds;
+            this.probe = probe;
+            probe.RecordHandlerCreated();
+        }
+
+        public Task<UserRegistrationResult> HandleAsync(CreateUserWithTask command)
+        {
+            probe.RecordCommandHandled(command.Username);
+
+            return Task.FromResult<UserRegistrationResult>(
                 new UserRegistered { Id = registeredUserIds.NextId }
             );
         }

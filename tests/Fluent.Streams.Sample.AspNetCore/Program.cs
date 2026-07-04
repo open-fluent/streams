@@ -5,6 +5,7 @@
 
 using Fluent.Streams.Sample;
 using Fluent.Streams.Sample.AspNetCore;
+using Fluent.Streams.Sample.AspNetCore.ApiModel;
 using Fluent.Streams.Sample.Commands;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -15,7 +16,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddFluentStreams().WithCommand<CreateNewBasketCommandHandler>();
+builder.Services.AddFluentStreams().WithCommand<CreateNewCommandHandler>();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
@@ -27,18 +28,25 @@ var ordersApi = app.MapGroup("/orders");
 ordersApi
     .MapPost(
         "/",
-        async ValueTask<Ok<Order>> (
+        async ValueTask<Ok<CreateOrderResponse>> (
             CreateOrderRequest request,
             ICommandDispatcher commandDispatcher,
             CancellationToken cancellationToken
         ) =>
         {
             var order = await commandDispatcher.SendAsync(
-                new CreateNewBasket { Items = request.Items },
+                new CreateNew { Items = request.Items },
                 cancellationToken
             );
 
-            return TypedResults.Ok(order);
+            return TypedResults.Ok(
+                new CreateOrderResponse
+                {
+                    OrderId = order.Id,
+                    Items = order.Items,
+                    CreatedAt = order.CreatedAt,
+                }
+            );
         }
     )
     .WithName("CreateOrder");

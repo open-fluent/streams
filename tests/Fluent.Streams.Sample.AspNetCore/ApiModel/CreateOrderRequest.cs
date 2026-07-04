@@ -5,7 +5,7 @@
 
 using Fluent.Streams.Sample.ValueObjects;
 
-namespace Fluent.Streams.Sample.AspNetCore;
+namespace Fluent.Streams.Sample.AspNetCore.ApiModel;
 
 /// <summary>
 /// Represents the HTTP request used by the ASP.NET Core sample to create a new order through the command bus.

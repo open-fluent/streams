@@ -5,6 +5,7 @@
 
 using System.Text.Json.Serialization;
 using Fluent.Streams.Sample;
+using Fluent.Streams.Sample.AspNetCore.ApiModel;
 using Fluent.Streams.Sample.ValueObjects;
 
 namespace Fluent.Streams.Sample.AspNetCore;

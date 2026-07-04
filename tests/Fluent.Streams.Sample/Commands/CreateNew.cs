@@ -3,14 +3,11 @@
 // Copyright (C) Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors.
 // All Rights Reserved.
 
+using Fluent.Streams.Sample.ValueObjects;
+
 namespace Fluent.Streams.Sample.Commands;
 
-public sealed class CreateNewBasketCommandHandler(TimeProvider timeProvider)
+public sealed record CreateNew
 {
-    public ValueTask<Order> HandleAsync(CreateNewBasket command, CancellationToken cancellationToken)
-    {
-        var now = timeProvider.GetUtcNow();
-
-        return new ValueTask<Order>(Order.Create(Guid.NewGuid(), now, command.Items));
-    }
+    public required OrderedItem[] Items { get; init; }
 }

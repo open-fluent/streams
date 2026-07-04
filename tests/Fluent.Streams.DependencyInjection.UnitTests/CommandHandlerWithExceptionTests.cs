@@ -66,6 +66,25 @@ public sealed class CommandHandlerWithExceptionTests
         probe.LastTokenCanBeCanceled.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task CommandHandler_ShouldDispatchCommand_WhenDIHandlerReturnsTask()
+    {
+        var command = new AuditTaskUserLogin { Username = "testuser" };
+
+        var services = new ServiceCollection();
+        services.AddSingleton<AuditProbe>();
+        services.AddFluentStreams().WithCommand<AuditTaskUserLoginHandler>();
+
+        await using var serviceProvider = services.BuildServiceProvider();
+        var dispatcher = serviceProvider.GetRequiredService<ICommandDispatcher>();
+        var probe = serviceProvider.GetRequiredService<AuditProbe>();
+
+        await dispatcher.SendAsync(command);
+
+        probe.HandledCommands.Should().Be(1);
+        probe.LastUsername.Should().Be(command.Username);
+    }
+
     public sealed record RegisterUser
     {
         public required string Username { get; init; }
@@ -116,6 +135,20 @@ public sealed class CommandHandlerWithExceptionTests
         {
             probe.Record(command.Username, cancellationToken.CanBeCanceled);
             return ValueTask.CompletedTask;
+        }
+    }
+
+    public sealed record AuditTaskUserLogin
+    {
+        public required string Username { get; init; }
+    }
+
+    public sealed class AuditTaskUserLoginHandler(AuditProbe probe)
+    {
+        public Task HandleAsync(AuditTaskUserLogin command)
+        {
+            probe.Record(command.Username);
+            return Task.CompletedTask;
         }
     }
 
