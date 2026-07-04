@@ -3,7 +3,4 @@
     <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-  <ItemGroup>
-    <Folder Include="Commands\" />
-  </ItemGroup>
 </Project>

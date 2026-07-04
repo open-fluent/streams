@@ -3,13 +3,14 @@
 // Copyright (C) Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors.
 // All Rights Reserved.
 
-using Fluent.Streams.Sample.ValueObjects;
+namespace Fluent.Streams.Sample.Commands;
 
-namespace Fluent.Streams.Sample.Events;
-
-public sealed record BasketCreated
+public sealed class ConfirmOrderCommandHandler
 {
-    public required Guid BasketId { get; init; }
+    public ValueTask HandleAsync(ConfirmOrder command, CancellationToken cancellationToken)
+    {
+        // TODO: Unit of work
 
-    public required OrderedItem[] Items { get; init; }
+        return default;
+    }
 }
