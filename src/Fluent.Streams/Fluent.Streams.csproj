@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Product>Fluent.Streams</Product>
+    <Title>Fluent.Streams</Title>
+    <Description>Markerless CQRS and event sourcing primitives for .NET: append-only streams, source-generated command registration, ValueTask handlers, and result-friendly command dispatching.</Description>
+    <PackageDescription>Markerless CQRS and event sourcing primitives for .NET: append-only streams, source-generated command registration, ValueTask handlers, and result-friendly command dispatching.</PackageDescription>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageTags>$(CommonTags);eventstore;event-sourced;command-dispatcher;markerless-handlers;valuetask;source-generated</PackageTags>
+    <OutputType>Library</OutputType>
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <NativeLib>Shared</NativeLib>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <IsPackable>true</IsPackable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Build the generator alongside SharedKernel; no runtime reference to its types -->
+    <ProjectReference
+      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.SourceGenerators.csproj"
+      PrivateAssets="all"
+      ReferenceOutputAssembly="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup Label="Package">
+    <!-- Pack the .targets file so NuGet consumers automatically get the analyzer registered -->
+    <None
+      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.targets"
+      PackagePath="buildTransitive\"
+      Pack="true"
+    />
+    <None
+      Include="..\Fluent.Streams.SourceGenerators\Fluent.Streams.targets"
+      PackagePath="build\"
+      Pack="true"
+    />
+    <!-- Pack the source generator binary -->
+    <None
+      Include="..\Fluent.Streams.SourceGenerators\bin\$(Configuration)\netstandard2.0\Fluent.Streams.SourceGenerators.dll"
+      PackagePath="analyzers\dotnet\cs"
+      Pack="true"
+      Visible="false"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="System.Diagnostics.CodeAnalysis" />
+  </ItemGroup>
+</Project>

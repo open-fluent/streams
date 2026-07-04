@@ -1,0 +1,49 @@
+<Project>
+  <!-- Gather the analyzer from the Fluent.Streams NuGet package -->
+  <Target Name="_FluentAnalyzersGatherAnalyzers">
+    <ItemGroup>
+      <_FluentAnalyzersAnalyzer
+        Include="@(Analyzer)"
+        Condition="'%(Analyzer.NuGetPackageId)' == 'Fluent.Streams'"
+      />
+    </ItemGroup>
+  </Target>
+
+  <!-- Remove the analyzer when Roslyn < 4.3 (incremental generators require Roslyn 4.3) -->
+  <Target
+    Name="_FluentAnalyzersRemoveAnalyzersForRoslyn3"
+    Condition="'$(CSharpCoreTargetsPath)' != ''"
+    AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets"
+    DependsOnTargets="_FluentAnalyzersGatherAnalyzers"
+  >
+    <GetAssemblyIdentity AssemblyFiles="$([System.IO.Path]::Combine(`$([System.IO.Path]::GetDirectoryName($(CSharpCoreTargetsPath)))`,`Microsoft.Build.Tasks.CodeAnalysis.dll`))">
+      <Output TaskParameter="Assemblies" ItemName="_FluentAnalyzersCompilerAssemblyIdentity" />
+    </GetAssemblyIdentity>
+    <PropertyGroup>
+      <_FluentAnalyzersCompilerVersion>@(_FluentAnalyzersCompilerAssemblyIdentity->'%(Version)')</_FluentAnalyzersCompilerVersion>
+      <_FluentAnalyzersCompilerTooOld
+        Condition="$([MSBuild]::VersionLessThan($(_FluentAnalyzersCompilerVersion), 4.3))"
+        >true</_FluentAnalyzersCompilerTooOld>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_FluentAnalyzersCompilerTooOld)' == 'true'">
+      <Analyzer Remove="@(_FluentAnalyzersAnalyzer)" />
+    </ItemGroup>
+    <Error
+      Condition="'$(_FluentAnalyzersCompilerTooOld)' == 'true'"
+      Code="FA001"
+      Text="The Fluent.Streams source generators require Roslyn 4.3 or later. Please upgrade to VS 2022 17.3+ or .NET 6.0.400 SDK or later."
+    />
+  </Target>
+
+  <!-- Remove the analyzer when Roslyn is not found -->
+  <Target
+    Name="_FluentAnalyzersRemoveAnalyzersForRoslynNotFound"
+    Condition="'$(CSharpCoreTargetsPath)' == ''"
+    AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets"
+    DependsOnTargets="_FluentAnalyzersGatherAnalyzers"
+  >
+    <ItemGroup>
+      <Analyzer Remove="@(_FluentAnalyzersAnalyzer)" />
+    </ItemGroup>
+  </Target>
+</Project>

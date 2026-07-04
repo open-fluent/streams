@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Artur Sawicki, Leszek Pomianowski and Fluent Framework Contributors. <https://dev.lepo.co/>
+Copyright (c) 2025-2026 Leszek Pomianowski and Fluent Framework Contributors. <https://dev.lepo.co/>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
