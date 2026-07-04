@@ -6,7 +6,7 @@
 namespace Fluent.Streams;
 
 /// <summary>
-/// Executes a hook of type <typeparamref name="TEvent"/> - the payload deserialized from a <see cref="PendingHook"/>.
+/// Executes a hook of type <typeparamref name="TEvent"/> using the event payload stored for later processing.
 /// Implement this interface to define what actually happens when the hook runs
 /// (e.g. an HTTP call to an external system, sending an email, etc.).
 /// </summary>
@@ -17,8 +17,11 @@ public interface IHook<TEvent> : IHook
     where TEvent : class
 {
     /// <summary>
-    /// Executes the hc. Throw an exception to signal a transient failure - the executor will
+    /// Executes the hook. Throw an exception to signal a transient failure - the executor will
     /// increment <c>Attempts</c> and the background service will retry later.
     /// </summary>
+    /// <param name="hc">The hook execution context containing the stream identifier, creation timestamp, and event payload.</param>
+    /// <param name="cancellationToken">A token used to cancel the hook execution.</param>
+    /// <returns>A task-like value that completes when the hook processing finishes.</returns>
     ValueTask HandleAsync(HookContext<TEvent> hc, CancellationToken cancellationToken = default);
 }

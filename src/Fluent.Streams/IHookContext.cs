@@ -10,6 +10,7 @@ namespace Fluent.Streams;
 /// Allows the storage and executor layers to work with hook instances without knowing
 /// <typeparamref name="TEvent"/> at compile time.
 /// </summary>
+/// <typeparam name="TEvent">The domain event type that triggered the hook.</typeparam>
 public interface IHookContext<out TEvent>
     where TEvent : class
 {

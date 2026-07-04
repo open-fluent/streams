@@ -6,10 +6,9 @@
 namespace Fluent.Streams;
 
 /// <summary>
-/// Non-generic marker interface for all domain-event-driven hooks.
-/// Allows the storage and executor layers to work with hook instances without knowing
-/// <typeparamref name="TEvent"/> at compile time.
+/// Provides contextual data for a hook triggered by a committed domain event.
 /// </summary>
+/// <typeparam name="TEvent">The domain event type that triggered the hook.</typeparam>
 public sealed class HookContext<TEvent> : IHookContext<TEvent>
     where TEvent : class
 {
